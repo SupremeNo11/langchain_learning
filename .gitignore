@@ -1,0 +1,22 @@
+# 密钥
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+
+# 测试与缓存
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# 本地数据
+data/vector_db/
+data/processed/
+*.db
+*.sqlite3

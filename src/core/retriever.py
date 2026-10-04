@@ -22,5 +22,23 @@ def get_retriever(
     提示:
         vectorstore.as_retriever(search_kwargs={"k": k, "score_threshold": ...})
     """
-    # TODO(阶段1): 你的实现
-    raise NotImplementedError("阶段1 任务 1.4: 实现 get_retriever")
+    if score_threshold is not None:
+        return vectorstore.as_retriever(search_kwargs={"k":k, "score_threshold":score_threshold})
+    else:
+        return vectorstore.as_retriever(search_kwargs={"k":k})
+
+if __name__ == "__main__":
+    from capabilities.rag.embedding import get_embeddings
+    from core.vectorstore import get_vectorstore
+
+    # 获取嵌入模型
+    emb = get_embeddings("ark")
+    # 获取化向量库
+    vs = get_vectorstore("demo_smoke", emb)
+    
+    # 获取检索器
+    retriever = get_retriever(vs, 2)
+
+    print(retriever.invoke("什么是langGraph?"))
+
+

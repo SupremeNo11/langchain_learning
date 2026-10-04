@@ -25,5 +25,17 @@ def get_vectorstore(
     提示:
         Chroma(collection_name=..., embedding_function=..., persist_directory=...)
     """
-    # TODO(阶段1): 你的实现
-    raise NotImplementedError("阶段1 任务 1.3: 实现 get_vectorstore")
+
+    persist_dir = persist_dir or settings.vector_store_dir
+
+    return Chroma(collection_name=collection_name, embedding_function=embeddings, persist_directory=persist_dir)
+
+if __name__ == "__main__":
+    # 实例化嵌入模型，这里使用方舟 豆包
+    from capabilities.rag.embedding import get_embeddings
+
+    emb = get_embeddings("ark")
+
+    vs = get_vectorstore( "demo_smoke" , emb) # 用一次性集合名，避免重复入库翻倍 
+    vs.add_texts([ "LangGraph 是用于构建智能体应用的编排框架" , "今天天气不错" ]) 
+    print (vs.similarity_search( "什么是LangGraph" , k= 1 ))

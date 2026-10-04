@@ -32,7 +32,7 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-where = ["."]
+where = [".", "src"]
 include = ["config*", "core*", "capabilities*", "graphs*", "api*", "utils*"]
 
 [tool.pytest.ini_options]

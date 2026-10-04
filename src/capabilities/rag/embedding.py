@@ -11,6 +11,10 @@
 from langchain_core.embeddings import Embeddings
 
 from config.settings import settings
+from langchain_openai import OpenAIEmbeddings
+from config.embedding import get_embed_provider
+
+import os
 
 
 def get_embeddings(provider: str | None = None) -> Embeddings:
@@ -29,5 +33,41 @@ def get_embeddings(provider: str | None = None) -> Embeddings:
         - 未知 provider 抛 ValueError（fail-fast，参照 config/llm.py 的做法）
         - 首次运行 fastembed 会下载模型(~100MB)，之后走本地缓存
     """
-    # TODO(阶段1): 你的实现
-    raise NotImplementedError("阶段1 任务 1.3: 实现 get_embeddings")
+    # 1. 解析供应商
+    provider = provider or settings.embedding_provider
+
+    # 2. 根据供应商决定嵌入模型
+    if provider == "local":
+        from langchain_community.embeddings import FastEmbedEmbeddings
+        embed_model = FastEmbedEmbeddings(model=settings.embedding_model)
+    elif provider == "ark":
+        cfg = get_embed_provider(provider)
+        api_key = (
+            os.getenv(cfg.api_key_env)
+            or settings.embedding_api_key
+            or settings.resolved_api_key   # ← .env 里的 ARK_API_KEY 就住在这里
+        )
+        base_url = cfg.base_url or settings.embedding_base_url
+        chunk_size = settings.chunk_size
+
+        embed_model = OpenAIEmbeddings(
+            model=cfg.model,
+            api_key=api_key,
+            base_url=base_url,
+            check_embedding_ctx_length = False,    # 直接发送原始文本，因为Ark模型内部已经做了tokenize
+            chunk_size = chunk_size, # 最大就是10
+        )
+    else:
+        get_embed_provider(provider)
+
+    return embed_model
+    
+if __name__ == "__main__":
+    emb = get_embeddings("local")
+    print ( len (emb.embed_query( "你好，世界" )))
+
+    emb = get_embeddings("ark")
+    print ( len (emb.embed_query( "你好，世界" )))
+
+    emb = get_embeddings("openai")  # 值错误，没有添加该供应商
+    print ( len (emb.embed_query( "你好，世界" )))

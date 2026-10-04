@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     # local: fastembed 本地模型（离线免费）；openai: OpenAI 兼容接口
     embedding_provider: str = "local"
     embedding_model: str = "BAAI/bge-small-zh-v1.5"
+    embedding_api_key: str = ""
+    embedding_base_url: str = "https://ark.cn-beijing.volces.com/api/coding/v3"
+    chunk_size: int = 10
 
     # ===== 日志 =====
     log_level: str = "INFO"

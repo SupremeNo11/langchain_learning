@@ -25,8 +25,19 @@ RAG_QA_TEMPLATE = """你是一个严谨的问答助手。请仅基于以下检�
 """
 
 # TODO(阶段1): 用 ChatPromptTemplate.from_template(RAG_QA_TEMPLATE) 创建 rag_qa_prompt
-rag_qa_prompt = None
+rag_qa_prompt = ChatPromptTemplate.from_template(RAG_QA_TEMPLATE)
 
 # 普通对话模板: system + human 消息
 # TODO(阶段1): 用 ChatPromptTemplate.from_messages 创建 chat_prompt
-chat_prompt = None
+chat_prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", "你是一个{role}，请用正文简洁回答。"),
+        ("human", "{question}")
+    ]
+)
+
+if __name__ == "__main__":
+    print(rag_qa_prompt.format(context="检索资料", question="How are you?"))
+    print(" ")
+    print(chat_prompt.format(role="专业的老师", question="How are you?"))
+

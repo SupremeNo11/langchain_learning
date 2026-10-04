@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     # ===== 向量库 =====
     vector_store_dir: str = "data/vector_db"
 
+    # ===== Embedding（向量化）=====
+    # local: fastembed 本地模型（离线免费）；openai: OpenAI 兼容接口
+    embedding_provider: str = "local"
+    embedding_model: str = "BAAI/bge-small-zh-v1.5"
+
     # ===== 日志 =====
     log_level: str = "INFO"
 

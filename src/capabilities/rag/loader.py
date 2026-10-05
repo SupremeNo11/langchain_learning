@@ -27,8 +27,22 @@ def load_document(path: str | Path) -> list:
         - .pdf  -> PyPDFLoader(path).load()
         - 其他  -> TextLoader(path, encoding="utf-8").load()
     """
-    # TODO(阶段1): 你的实现
-    raise NotImplementedError("阶段1 任务 1.5: 实现 load_document")
+    file_path = Path(path)
+    suffix = file_path.suffix.lower()
+
+    if suffix not in SUPPORTED_SUFFIXES:
+        raise ValueError(
+            f"不支持的文件类型: {suffix or '<无后缀>'}，"
+            f"仅支持: {', '.join(sorted(SUPPORTED_SUFFIXES))}"
+        )
+
+    if suffix == ".pdf":
+        loader = PyPDFLoader(str(file_path))
+    else:
+        # .md 和 .txt 都按 UTF-8 纯文本加载
+        loader = TextLoader(str(file_path), encoding="utf-8")
+
+    return loader.load()
 
 
 def load_directory(dir_path: str | Path) -> list:
@@ -38,5 +52,18 @@ def load_directory(dir_path: str | Path) -> list:
         - 遍历 dir_path.rglob("*")
         - 只处理 is_file() 且后缀在 SUPPORTED_SUFFIXES 内的文件
     """
-    # TODO(阶段1): 你的实现
-    raise NotImplementedError("阶段1 任务 1.5: 实现 load_directory")
+    base = Path(dir_path)
+
+    if not base.is_dir():
+        raise NotADirectoryError(f"不是有效目录: {base}")
+
+    documents = []
+    for file_path in sorted(base.rglob("*")):
+        if file_path.is_file() and file_path.suffix.lower() in SUPPORTED_SUFFIXES:
+            documents.extend(load_document(file_path))
+
+    return documents
+
+if __name__ == "__main__":
+    path_str = "data"
+    print(len(load_directory(path_str)))

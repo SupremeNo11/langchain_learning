@@ -6,20 +6,24 @@
 """
 from langchain_core.language_models import BaseChatModel
 
+from core.prompts import rag_qa_prompt
 from graphs.state import RagState
 
 
 def make_generate_node(llm: BaseChatModel):
-    """通过闭包注入 LLM。
-
-    提示:
-        - 用 rag_qa_prompt.format_messages(context=..., question=...) 组装消息
-        - llm.invoke(messages) 得到响应，取 response.content
-        - 返回 {"answer": ...}
-    """
+    """节点工厂: 焊死 LLM 依赖，返回生成节点函数。"""
 
     def generate_node(state: RagState) -> dict:
-        # TODO(阶段2): 你的实现
-        raise NotImplementedError("阶段2 任务 2.2: 实现 generate_node")
+        # 1. 从状态总线取输入（retrieve 节点已写入 context）
+        #    注意 key 必须与 RagState 逐字一致——契约
+        messages = rag_qa_prompt.format_messages(
+            context=state["context"],
+            question=state["question"],
+        )
+        # 2. 调模型。response 是 AIMessage，取 .content 得纯文本
+        #    （阶段1 StrOutputParser 干的就是这件事，这里手动做）
+        response = llm.invoke(messages)
+        # 3. 只返回要更新的字段
+        return {"answer": response.content}
 
     return generate_node

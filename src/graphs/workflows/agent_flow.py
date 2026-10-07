@@ -20,7 +20,7 @@ from capabilities.agents.prompt import agent_prompt
 from graphs.state import AgentState
 
 
-def build_agent_graph(llm: BaseChatModel, tools: list[BaseTool]):
+def build_agent_graph(llm: BaseChatModel, tools: list[BaseTool], checkpointer=None):
     """构建 ReAct Agent 图。
 
     参数:
@@ -68,43 +68,65 @@ def build_agent_graph(llm: BaseChatModel, tools: list[BaseTool]):
     # 循环边: 工具执行完带着结果回到 agent 重新决策——环就在这一行
     graph.add_edge("tools", "agent")
 
-    return graph.compile()
+    return graph.compile(checkpointer=checkpointer)
 
 
 if __name__ == "__main__":
+    # from langchain_core.messages import HumanMessage
+
+    # from capabilities.agents.tools.calculator import add
+    # from capabilities.agents.tools.multiply import multiply
+    # from capabilities.agents.tools.get_time import get_current_time
+    # from core.llm import create_llm
+
+    # app = build_agent_graph(create_llm(), [add, multiply, get_current_time])
+
+    # print("=== 问题1: 多步工具链（循环的实证）===")
+    # r1 = app.invoke({"messages": [HumanMessage("先算 123 乘以 456，再把结果加上 789")]})
+    # for m in r1["messages"]:
+    #     name = type(m).__name__
+    #     for tc in getattr(m, "tool_calls", None) or []:
+    #         print(f"[{name}→工具] {tc['name']}({tc['args']})")
+    #     if m.content:
+    #         print(f"[{name}] {m.content}")
+
+    # print("\n=== 问题2: 无需工具（条件边的实证）===")
+    # r2 = app.invoke({"messages": [HumanMessage("你好，用一句话介绍你自己")]})
+    # for m in r2["messages"]:
+    #     name = type(m).__name__
+    #     for tc in getattr(m, "tool_calls", None) or []:
+    #         print(f"[{name}→工具] {tc['name']}({tc['args']})")
+    #     if m.content:
+    #         print(f"[{name}] {m.content}")
+
+    # print("\n=== 问题3: 获取当前时间===")
+    # r2 = app.invoke({"messages": [HumanMessage("现在几点了？")]})
+    # for m in r2["messages"]:
+    #     name = type(m).__name__
+    #     for tc in getattr(m, "tool_calls", None) or []:
+    #         print(f"[{name}→工具] {tc['name']}({tc['args']})")
+    #     if m.content:
+    #         print(f"[{name}] {m.content}")
+
+
+    # 会话记忆测试
     from langchain_core.messages import HumanMessage
-
-    from capabilities.agents.tools.calculator import add
-    from capabilities.agents.tools.multiply import multiply
-    from capabilities.agents.tools.get_time import get_current_time
+    from langgraph.checkpoint.memory import MemorySaver
     from core.llm import create_llm
+    from capabilities.agents.tools.multiply import multiply
+    from graphs.workflows.agent_flow import build_agent_graph
 
-    app = build_agent_graph(create_llm(), [add, multiply, get_current_time])
+    app = build_agent_graph(create_llm(), [multiply], checkpointer=MemorySaver())
 
-    print("=== 问题1: 多步工具链（循环的实证）===")
-    r1 = app.invoke({"messages": [HumanMessage("先算 123 乘以 456，再把结果加上 789")]})
-    for m in r1["messages"]:
-        name = type(m).__name__
-        for tc in getattr(m, "tool_calls", None) or []:
-            print(f"[{name}→工具] {tc['name']}({tc['args']})")
-        if m.content:
-            print(f"[{name}] {m.content}")
+    # 第1轮: 埋一个信息
+    cfg = {"configurable": {"thread_id": "user-001"}}
+    app.invoke({"messages": [HumanMessage("我叫小明，最喜欢的数字是42，请记住")]}, config=cfg)
 
-    print("\n=== 问题2: 无需工具（条件边的实证）===")
-    r2 = app.invoke({"messages": [HumanMessage("你好，用一句话介绍你自己")]})
-    for m in r2["messages"]:
-        name = type(m).__name__
-        for tc in getattr(m, "tool_calls", None) or []:
-            print(f"[{name}→工具] {tc['name']}({tc['args']})")
-        if m.content:
-            print(f"[{name}] {m.content}")
+    # 第2轮: 同 thread —— 记忆实证（要用42调 multiply，工具+记忆双验证）
+    r = app.invoke({"messages": [HumanMessage("我最喜欢的数字乘以10是多少？一句话回答")]}, config=cfg)
+    print("同thread:", r["messages"][-1].content)        # 期望: 420
 
-    print("\n=== 问题3: 获取当前时间===")
-    r2 = app.invoke({"messages": [HumanMessage("现在几点了？")]})
-    for m in r2["messages"]:
-        name = type(m).__name__
-        for tc in getattr(m, "tool_calls", None) or []:
-            print(f"[{name}→工具] {tc['name']}({tc['args']})")
-        if m.content:
-            print(f"[{name}] {m.content}")
-
+    # 第3轮: 换 thread —— 隔离实证
+    r2 = app.invoke({"messages": [HumanMessage("我最喜欢的数字乘以10是多少？")]},
+                    config={"configurable": {"thread_id": "user-002"}})
+    print("换thread:", r2["messages"][-1].content)       # 期望: 它不知道42，会反问或瞎猜

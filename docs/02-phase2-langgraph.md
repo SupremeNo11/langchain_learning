@@ -67,7 +67,9 @@ agent = create_react_agent(model, tools)  # 或自己用 StateGraph 实现循环
 
 **自测问题**
 - 为什么 Agent 需要"循环"？什么时候退出循环？
+> 模型的下一步决策依赖工具的执行结果，而结果在执行之前不存在，所以流程必然是"决策-->执行-->决策再回看"。模型返回单的AIMessage不再带tool_calls，条件边路由到END。
 - `bind_tools` 的作用是什么？
+> 告诉LLM有哪些工具可以使用。
 
 ## 2.7 任务 2.5：会话记忆
 

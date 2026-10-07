@@ -9,7 +9,9 @@
     它不提供初始值——初始状态由调用方传入 app.invoke({"question": ...})。
     每个节点返回"要更新的字段子集"，LangGraph 逐字段覆盖合并进 state。
 """
-from typing import TypedDict
+from typing import Annotated, TypedDict
+
+from langgraph.graph.message import add_messages
 
 
 class RagState(TypedDict):
@@ -24,10 +26,17 @@ class RagState(TypedDict):
     context: str
     answer: str
 
-    # 预告(阶段2.4 Agent 时启用): 消息列表字段用 Annotated 改变合并策略——
-    #   from typing import Annotated
-    #   from langgraph.graph.message import add_messages
-    #   messages: Annotated[list, add_messages]   # 默认策略是"覆盖"，add_messages 改成"追加"
+
+class AgentState(TypedDict):
+    """Agent 工作流状态（阶段2.4 启用）。
+
+    与 RagState 的本质区别:
+        RagState 字段默认"覆盖"合并（各节点写各自的字段）
+        messages 用 add_messages reducer 改成"追加"合并——
+        每个节点返回 {"messages": [新消息]}，新消息被 append 进历史，
+        于是 Human/AI/Tool 消息在循环中不断累积，模型每轮都看到完整历史。
+    """
+    messages: Annotated[list, add_messages]
 
 if __name__ == "__main__":
     from core.llm import create_llm

@@ -1,7 +1,7 @@
 """意图路由 —— 阶段3 任务 3.2
 
 职责：根据问题内容把请求路由到不同处理链路（关键词版）。
-学习目标：掌握规则路由设计；阶段3 可替换为 LLM 语义路由。
+学习目标：掌握规则路由设计；LLM 语义路由是延伸方向。
 对应文档：docs/03-phase3-industrial.md
 """
 
@@ -13,18 +13,13 @@ def route_by_keywords(
 ) -> str:
     """根据关键词命中返回路由名，命中多个时取注册顺序第一个。
 
-    期望用法::
-
-        keyword_map = {
-            "rag": ["知识库", "文档", "资料"],
-            "agent": ["计算", "工具"],
-        }
-        route = route_by_keywords(question, keyword_map)
-
-    提示:
-        - question 先转小写再匹配
-        - 遍历 keyword_map 的 key 顺序，命中任一个关键词即返回该 route
-        - 全部未命中返回 default
+    规则:
+        1. 问题与关键词都小写化后比对（大小写不敏感）
+        2. 按 keyword_map 的注册顺序优先——dict 保序，先注册的先匹配，命中即返回
+        3. 全部未命中返回 default
     """
-    # TODO(阶段3): 你的实现
-    raise NotImplementedError("阶段3 任务 3.2: 实现 route_by_keywords")
+    text = question.lower()
+    for route, keywords in keyword_map.items():
+        if any(kw.lower() in text for kw in keywords):
+            return route
+    return default

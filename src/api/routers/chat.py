@@ -13,15 +13,21 @@
     （LLM 网络 IO，秒级）。直接调用 = 事件循环被卡死 = 整个服务单线程化。
     TTLCache 已上锁，被线程池并发踩是安全的——3.1 的伏笔在此回收。
 """
+import time
+
 from fastapi import APIRouter, Request
 from fastapi.concurrency import run_in_threadpool
 from langchain_core.messages import HumanMessage
 
 from api.schemas import ChatRequest, ChatResponse
 from capabilities.routing.router import route_by_keywords
+from core.log import get_logger
 from core.prompts import chat_prompt
 
 router = APIRouter(prefix="/api/v1", tags=["chat"])
+
+# 3.5 可观测性: 每个模块一个 logger，输出自动携带模块名(api.routers.chat)
+logger = get_logger(__name__)
 
 # 分流关键词表: 命中 → 完整图；未命中 → 轻量闲聊
 # （规则路由的宿命: 用户换个说法就漏——"几点"补丁就是实例。漏多了就该换语义路由，见 3.2 延伸）
@@ -42,8 +48,14 @@ async def chat(req: ChatRequest, request: Request) -> ChatResponse:
     #   若只用消息做 key，s2 会命中 s1 缓存的"56"——拿到别人的错误答案。
     cache_key = f"{session_id}:{req.message}"
 
+    start = time.perf_counter()   # perf_counter: 高分辨率单调时钟（与 TTLCache 同族）
+
     cached = cache.get(cache_key)
     if cached is not None:
+        # 命中: 路由根本没执行，所以 route 记 "--"；只记问题前20字符——
+        # 完整用户内容属敏感数据，日志要克制（可观测性与隐私的权衡）
+        logger.info("chat | session=%s | route=-- | cache=hit | q=%.20s | cost=%.0fms",
+                    session_id, req.message, (time.perf_counter() - start) * 1000)
         return ChatResponse(answer=cached, session_id=session_id)   # 命中: 秒回，不打 LLM
 
     # 意图分流: 3.2 的函数在此接线
@@ -64,6 +76,10 @@ async def chat(req: ChatRequest, request: Request) -> ChatResponse:
         messages = chat_prompt.format_messages(role="简洁的中文助手", question=req.message)
         response = await run_in_threadpool(request.app.state.chat_llm.invoke, messages)
         answer = response.content
+
+    # 3.5: 请求完成日志——route/cache/cost 三元组让每条请求的路径一目了然
+    logger.info("chat | session=%s | route=%s | cache=miss | q=%.20s | cost=%.0fms",
+                session_id, route, req.message, (time.perf_counter() - start) * 1000)
 
     cache.set(cache_key, answer)
     return ChatResponse(answer=answer, session_id=session_id)
